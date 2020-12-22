@@ -28,7 +28,7 @@
 /**
  * Marlin release version identifier
  */
-#define SHORT_BUILD_VERSION "CR6Comm-BTTSKR-Rel5-v2.0.7.3"
+#define SHORT_BUILD_VERSION "CR6Comm-BTTSKR-Rel5"
 
 /**
  * Verbose version identifier which should contain a reference to the location
