@@ -55,6 +55,7 @@ uint16_t DGUSScreenHandler::ConfirmVP;
   static ExtUI::FileList filelist;
 #endif
 
+creality_dwin_settings_t DGUSScreenHandler::Settings = {.settings_size = sizeof(creality_dwin_settings_t)};
 DGUSLCD_Screens DGUSScreenHandler::current_screen;
 DGUSLCD_Screens DGUSScreenHandler::past_screens[NUM_PAST_SCREENS] = {DGUSLCD_SCREEN_MAIN};
 uint8_t DGUSScreenHandler::update_ptr;
@@ -62,7 +63,7 @@ uint16_t DGUSScreenHandler::skipVP;
 bool DGUSScreenHandler::ScreenComplete;
 uint8_t DGUSScreenHandler::MeshLevelIndex = -1;
 bool DGUSScreenHandler::are_steppers_enabled = true;
-float DGUSScreenHandler::feed_amount = true;
+float DGUSScreenHandler::feed_amount = 100;
 
 // endianness swap
 uint16_t swap16(const uint16_t value) { return (value & 0xffU) << 8U | (value >> 8U); }
@@ -85,6 +86,61 @@ void DGUSScreenHandler::sendinfoscreen(const char* line1, const char* line2, con
   //  ramcopy.memadr = (void*) line4;
   //  l4inflash ? DGUSScreenHandler::DGUSLCD_SendStringToDisplayPGM(ramcopy) : DGUSScreenHandler::DGUSLCD_SendStringToDisplay(ramcopy);
   //}
+}
+
+void DGUSScreenHandler::DefaultSettings() {
+  Settings.settings_size = sizeof(creality_dwin_settings_t);
+
+  Settings.led_state = false;
+
+  Settings.display_standby = true;
+  Settings.display_sound = true;
+}
+
+void DGUSScreenHandler::LoadSettings(const char* buff) {
+  static_assert(
+    ExtUI::eeprom_data_size >= sizeof(creality_dwin_settings_t),
+    "Insufficient space in EEPROM for UI parameters"
+  );
+
+  creality_dwin_settings_t eepromSettings;
+  memcpy(&eepromSettings, buff, sizeof(creality_dwin_settings_t));
+
+  // If size is not the same, discard settings
+  if (eepromSettings.settings_size != sizeof(creality_dwin_settings_t)) {
+    SERIAL_ECHOLNPGM("Discarding DWIN LCD setting from EEPROM - size incorrect");
+
+    ScreenHandler.DefaultSettings();
+    return;
+  } else {
+    // Copy into final location
+    SERIAL_ECHOLNPGM("Loading DWIN LCD setting from EEPROM");
+    memcpy(&Settings, &eepromSettings, sizeof(creality_dwin_settings_t));
+  }
+
+  // Apply settings
+  caselight.on = Settings.led_state;
+  caselight.update(Settings.led_state);
+
+  ScreenHandler.SetTouchScreenConfiguration();
+}
+
+void DGUSScreenHandler::StoreSettings(char* buff) {
+  static_assert(
+    ExtUI::eeprom_data_size >= sizeof(creality_dwin_settings_t),
+    "Insufficient space in EEPROM for UI parameters"
+  );
+
+  // Update settings from Marlin state, if necessary
+  Settings.led_state = caselight.on;
+
+  // Write to buffer
+  SERIAL_ECHOLNPGM("Saving DWIN LCD setting from EEPROM");
+  memcpy(buff, &Settings, sizeof(creality_dwin_settings_t));
+}
+
+void DGUSScreenHandler::SetTouchScreenConfiguration() {
+  dgusdisplay.SetTouchScreenConfiguration(Settings.display_standby, Settings.display_sound);
 }
 
 void DGUSScreenHandler::HandleUserConfirmationPopUp(uint16_t VP, const char* line1, const char* line2, const char* line3, const char* line4, bool l1, bool l2, bool l3, bool l4) {
@@ -429,6 +485,7 @@ void DGUSScreenHandler::FilamentRunout() {
 }
 
 void DGUSScreenHandler::OnFactoryReset() {
+  ScreenHandler.DefaultSettings();
   ScreenHandler.GotoScreen(DGUSLCD_SCREEN_MAIN);
 }
 
@@ -497,7 +554,7 @@ void DGUSScreenHandler::OnMeshLevelingUpdate(const int8_t xpos, const int8_t ypo
 
   MeshLevelIndex++;
 
-  DEBUG_ECHOLNPAIR("Mesh level index: ", MeshLevelIndex);
+  SERIAL_ECHOLNPAIR("Mesh level index: ", MeshLevelIndex);
 
   // Update icon
   constexpr uint16_t DGUS_GRID_MAX_POINTS = 4 * 4; // For now we hardcode the maximum to 16 points
@@ -511,7 +568,7 @@ void DGUSScreenHandler::OnMeshLevelingUpdate(const int8_t xpos, const int8_t ypo
 
     settings.save();
 
-    GotoScreen(DGUSLCD_SCREEN_ZOFFSET_LEVEL);
+    PopToOldScreen();
   } else {
     // We've already updated the icon, so nothing left
   }
@@ -1033,6 +1090,23 @@ void DGUSScreenHandler::HandleLEDToggle() {
   caselight.on = newState;
   caselight.update(newState);
 
+  settings.save();
+  ForceCompleteUpdate();
+}
+
+void DGUSScreenHandler::HandleToggleTouchScreenMute(DGUS_VP_Variable &var, void *val_ptr) {
+  Settings.display_sound = !Settings.display_sound;
+  ScreenHandler.SetTouchScreenConfiguration();
+
+  settings.save();
+  ForceCompleteUpdate();
+}
+
+void DGUSScreenHandler::HandleToggleTouchScreenStandbySetting(DGUS_VP_Variable &var, void *val_ptr) {
+  Settings.display_standby = !Settings.display_standby;
+  ScreenHandler.SetTouchScreenConfiguration();
+
+  settings.save();
   ForceCompleteUpdate();
 }
 
