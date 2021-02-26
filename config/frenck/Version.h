@@ -28,13 +28,13 @@
 /**
  * Marlin release version identifier
  */
-#define SHORT_BUILD_VERSION "CR6Frenck"
+#define SHORT_BUILD_VERSION "Frenck's CR-6 SE"
 
 /**
  * Verbose version identifier which should contain a reference to the location
  * from where the binary was downloaded or the source code was compiled.
  */
-#define DETAILED_BUILD_VERSION "Frenck's CR-6 FW for BTT SKR + BTT TFT"
+#define DETAILED_BUILD_VERSION "Frenck's CR-6 FW for BTT SKR"
 
 /**
  * The STRING_DISTRIBUTION_DATE represents when the binary file was built,
@@ -65,7 +65,7 @@
  * The WEBSITE_URL is the location where users can get more information such as
  * documentation about a specific Marlin release.
  */
-#define WEBSITE_URL "https://github.com/frenck/Marlin"
+#define WEBSITE_URL "https://frenck.dev"
 
 /**
  * Set the vendor info the serial USB interface, if changable
